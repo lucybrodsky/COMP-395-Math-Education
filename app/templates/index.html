@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebra Tutor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body>
+<div class="app">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <span class="logo">📐</span>
+            <h1>Algebra Tutor</h1>
+        </div>
+        <div class="mode-toggle" role="group" aria-label="Mode">
+            <button id="btn-practice" class="mode-btn active" onclick="setMode('practice')">
+                Practice
+            </button>
+            <button id="btn-chat" class="mode-btn" onclick="setMode('chat')">
+                Chat
+            </button>
+        </div>
+    </header>
+
+    <!-- Practice panel (hidden in chat mode) -->
+    <div id="practice-panel" class="practice-panel">
+        <div class="problem-display">
+            <span class="problem-label">Equation:</span>
+            <span id="problem-text" class="problem-text">—</span>
+        </div>
+        <div class="problem-controls">
+            <select id="difficulty-select" class="difficulty-select" aria-label="Difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+            <button id="btn-new-problem" class="btn-secondary" onclick="newProblem()">
+                New Problem
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat messages -->
+    <main class="chat-area" id="chat-area">
+        <div class="welcome" id="welcome-msg">
+            <p class="welcome-title">Welcome to Algebra Tutor!</p>
+            <p>
+                <strong>Practice Mode</strong> — I give you an equation and guide you step by step.<br>
+                <strong>Chat Mode</strong> — Ask me any linear algebra question.
+            </p>
+            <p class="welcome-hint">Choose a mode above to get started.</p>
+        </div>
+    </main>
+
+    <!-- Tool activity indicator -->
+    <div id="tool-indicator" class="tool-indicator hidden">
+        <span class="spinner"></span>
+        <span id="tool-label">Checking math…</span>
+    </div>
+
+    <!-- Input bar -->
+    <footer class="input-area">
+        <input
+            id="user-input"
+            class="chat-input"
+            type="text"
+            placeholder="Type your answer or question…"
+            autocomplete="off"
+            aria-label="Message input"
+        >
+        <button id="btn-send" class="btn-send" onclick="sendMessage()">Send</button>
+    </footer>
+
+</div>
+
+<!-- KaTeX -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script
+    defer
+    src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="katexReady = true"
+></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
