@@ -64,32 +64,50 @@ _GRAPH_FILLERS = re.compile(
 )
 
 
-def _extract_graph_target(text: str) -> str | None:
+def _extract_graph_target(text: str):
     """
-    Attempt to extract a graphable expression from the user's message.
+    Attempt to extract a graphable expression (or list of expressions) from
+    the user's message.
 
-    Returns the expression string (e.g. 'x^2 - 4') or None if one cannot
-    be confidently identified.
+    Returns:
+      - str: single RHS expression, e.g. 'x^2 - 4'
+      - list[str]: two or more full equation strings for a system,
+                   e.g. ['y = 2x + 1', 'y = x - 3']
+      - None: cannot confidently identify a graphable target
 
     Examples:
-      "graph y = 2x + 1"      → "2x + 1"
-      "plot x^2 - 4"          → "x^2 - 4"
-      "graph the equation 2x + 5 = 11" → None  (solve equation, not a plot request)
+      "graph y = 2x + 1"                      → "2x + 1"
+      "plot x^2 - 4"                           → "x^2 - 4"
+      "graph y = 2x + 1 and y = x - 3"        → ["y = 2x + 1", "y = x - 3"]
+      "graph the equation 2x + 5 = 11"        → None  (solve request)
     """
-    # Pattern: explicit "y = <expr>" — extract the RHS for graphing
+    # ── System detection: two or more "y = ..." forms ────────────────────────
+    all_y_equals = re.findall(
+        r"[yY]\s*=\s*(.+?)(?=\s*(?:and|,|&|[yY]\s*=)|\Z)", text, re.IGNORECASE
+    )
+    # Deduplicate while preserving order; strip trailing punctuation/whitespace
+    seen = []
+    for m in all_y_equals:
+        cleaned = m.strip().rstrip(".,?!")
+        if cleaned and cleaned not in seen:
+            seen.append(cleaned)
+
+    if len(seen) >= 2:
+        return [f"y = {expr}" for expr in seen]
+
+    # ── Single expression: explicit "y = <expr>" ──────────────────────────────
     m = re.search(r"\by\s*=\s*(.+)", text, re.IGNORECASE)
     if m:
         return m.group(1).strip().rstrip(".,?!")
 
-    # Strip filler words and see what's left
+    # ── Single expression: strip filler words, look for bare expression ───────
     cleaned = _GRAPH_FILLERS.sub(" ", text).strip()
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,?!")
 
-    # If there's an = sign but no y = form, this is likely a solve request, not graphing
+    # If there's an = sign but no y = form, this is likely a solve request
     if "=" in cleaned:
         return None
 
-    # What's left should be a raw expression containing x
     if cleaned and re.search(r"[xX]", cleaned):
         return cleaned
 
