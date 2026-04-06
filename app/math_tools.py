@@ -227,41 +227,93 @@ def solve_system_of_equations(eq1: str, eq2: str) -> dict:
         return {"error": f"Could not solve system: {exc}"}
 
 
-def graph_function(expression_str: str, x_min: float = -10, x_max: float = 10) -> dict:
+# Distinct colors for multi-curve plots
+_PLOT_COLORS = ["#4f46e5", "#e53e3e", "#38a169", "#d69e2e", "#805ad5"]
+
+
+def _rhs_from_equation(equation_str: str) -> str:
     """
-    Plot a function y = f(x) and return a base64-encoded PNG image.
+    Extract a plottable RHS expression string from an equation string.
+
+    'y = 2x + 1'  → '2x + 1'
+    'f(x) = x^2'  → 'x^2'
+    'x^2 - 4'     → 'x^2 - 4'  (bare expression, returned as-is)
+    """
+    eq = equation_str.strip()
+    if "=" in eq:
+        lhs_str, rhs_str = eq.split("=", 1)
+        lhs_norm = lhs_str.strip().lower().replace(" ", "")
+        if lhs_norm in ("y", "f(x)", "g(x)"):
+            return rhs_str.strip()
+        # Other equation form: graph lhs - rhs
+        return f"({lhs_str.strip()}) - ({rhs_str.strip()})"
+    return eq
+
+
+def _plot_equations(exprs: list) -> dict:
+    """
+    Plot one or more expressions on shared axes.
+
+    For every pair of expressions, solves for real intersections using
+    SymPy and marks each one with a labeled dot.
 
     Args:
-        expression_str: A math expression in x, e.g. 'x^2 - 4' or '2*x + 1'.
-        x_min: Left bound of the x-axis (default -10).
-        x_max: Right bound of the x-axis (default 10).
+        exprs: List of RHS expression strings (already extracted from equations).
 
     Returns:
-        A dict with 'image_b64' (base64 PNG string) and 'expression', or 'error'.
+        {"image_b64": <base64 PNG>, "expression": <comma-joined label>} or {"error": ...}
     """
+    import itertools
+
+    x = symbols("x")
     fig = None
     try:
-        x = symbols("x")
-        expr = _parse_expr(expression_str)
-        f = lambdify(x, expr, modules=["numpy"])
+        sym_exprs = [_parse_expr(e) for e in exprs]
+        funcs = [lambdify(x, se, modules=["numpy"]) for se in sym_exprs]
 
-        x_vals = np.linspace(x_min, x_max, 600)
-        y_vals = f(x_vals)
-
-        # Ensure y_vals is an array (handles constant expressions)
-        y_vals = np.broadcast_to(np.asarray(y_vals, dtype=float), x_vals.shape).copy()
-
-        # Clip extreme values to keep graph readable (handles asymptotes)
-        y_vals[np.abs(y_vals) > 1e6] = np.nan
+        x_vals = np.linspace(-10, 10, 600)
 
         fig, ax = plt.subplots(figsize=(6, 4), dpi=110)
-        ax.plot(x_vals, y_vals, color="#4f46e5", linewidth=2)
+
+        for i, (f, label) in enumerate(zip(funcs, exprs)):
+            y_vals = f(x_vals)
+            y_vals = np.broadcast_to(
+                np.asarray(y_vals, dtype=float), x_vals.shape
+            ).copy()
+            y_vals[np.abs(y_vals) > 1e6] = np.nan
+            color = _PLOT_COLORS[i % len(_PLOT_COLORS)]
+            ax.plot(x_vals, y_vals, color=color, linewidth=2, label=f"y = {label}")
+
+        # Pairwise intersections
+        for i, j in itertools.combinations(range(len(sym_exprs)), 2):
+            try:
+                x_sols = solve(Eq(sym_exprs[i], sym_exprs[j]), x)
+                for x_sol in x_sols:
+                    if not x_sol.is_real:
+                        continue
+                    x_num = float(x_sol.evalf())
+                    y_num = float(sym_exprs[i].subs(x, x_sol).evalf())
+                    ax.plot(x_num, y_num, "ko", markersize=6, zorder=5)
+                    ax.annotate(
+                        f"({x_num:.2f}, {y_num:.2f})",
+                        xy=(x_num, y_num),
+                        xytext=(8, 8),
+                        textcoords="offset points",
+                        fontsize=8,
+                        color="#1a202c",
+                    )
+            except Exception:
+                pass  # skip if solve fails for this pair
+
         ax.axhline(0, color="#9ca3af", linewidth=0.8)
         ax.axvline(0, color="#9ca3af", linewidth=0.8)
         ax.set_xlabel("x", fontsize=11)
         ax.set_ylabel("y", fontsize=11)
-        ax.set_title(f"y = {expression_str}", fontsize=12)
         ax.grid(True, linestyle="--", alpha=0.5)
+        if len(exprs) > 1:
+            ax.legend(fontsize=9)
+        else:
+            ax.set_title(f"y = {exprs[0]}", fontsize=12)
         fig.tight_layout()
 
         buf = io.BytesIO()
@@ -269,41 +321,31 @@ def graph_function(expression_str: str, x_min: float = -10, x_max: float = 10) -
         buf.seek(0)
         b64 = base64.b64encode(buf.read()).decode("utf-8")
 
-        return {"image_b64": b64, "expression": expression_str}
+        return {"image_b64": b64, "expression": ", ".join(exprs)}
+
     except Exception as exc:
-        return {"error": f"Could not graph expression: {exc}"}
+        return {"error": f"Could not graph expression(s): {exc}"}
     finally:
         if fig is not None:
             plt.close(fig)
 
 
-def graph_equation(equation_str: str) -> dict:
+def graph_equation(equation_str) -> dict:
     """
-    Graph a function from an equation string.
+    Graph one or more equations/expressions.
 
-    Handles:
-      - 'y = 2x + 1'   → graphs the RHS as f(x)
-      - 'x^2 - 4'      → graphs expression directly as f(x)
-      - 'f(x) = x^2'   → graphs the RHS
-
-    Args:
-        equation_str: An equation or expression to graph.
+    Accepts:
+      - A single string: 'y = 2x + 1', 'x^2 - 4', 'f(x) = x^2'
+      - A list of strings: ['y = 2x + 1', 'y = x - 3']
 
     Returns:
-        Result from graph_function() with 'image_b64' and 'expression', or 'error'.
+        {"image_b64": <base64 PNG>, "expression": <str>} or {"error": <str>}
     """
-    eq = equation_str.strip()
-    if "=" in eq:
-        lhs_str, rhs_str = eq.split("=", 1)
-        lhs_str = lhs_str.strip().lower().replace(" ", "")
-        rhs_str = rhs_str.strip()
-        # y = f(x) or f(x) = ... forms
-        if lhs_str in ("y", "f(x)", "g(x)"):
-            return graph_function(rhs_str)
-        # Other equation forms: graph lhs - rhs
-        return graph_function(f"({lhs_str}) - ({rhs_str})")
-    # No equals sign: treat as a bare expression
-    return graph_function(eq)
+    if isinstance(equation_str, list):
+        exprs = [_rhs_from_equation(e) for e in equation_str]
+    else:
+        exprs = [_rhs_from_equation(equation_str)]
+    return _plot_equations(exprs)
 
 
 def check_student_step(original_equation: str, student_expression: str) -> dict:
