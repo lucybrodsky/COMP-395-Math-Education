@@ -64,3 +64,15 @@ def test_graph_equation_error_on_bad_expression():
     """Unparseable expression returns an error dict, not an exception."""
     result = graph_equation("not_a_valid_expression!!!")
     assert "error" in result
+
+
+def test_end_to_end_system_graph():
+    """
+    Simulate the full path: extract target from user text, pass to graph_equation.
+    """
+    from app.tutor import _extract_graph_target
+    target = _extract_graph_target("graph y = 2x + 1 and y = x - 3")
+    assert isinstance(target, list)
+    result = graph_equation(target)
+    assert "image_b64" in result, result.get("error")
+    assert _is_valid_b64_png(result["image_b64"])
