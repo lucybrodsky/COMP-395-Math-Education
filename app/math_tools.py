@@ -268,7 +268,18 @@ def _plot_equations(exprs: list) -> dict:
     x = symbols("x")
     fig = None
     try:
-        sym_exprs = [_parse_expr(e) for e in exprs]
+        # Parse each expression individually; skip any that fail to parse
+        sym_exprs = []
+        valid_exprs = []
+        for e in exprs:
+            try:
+                sym_exprs.append(_parse_expr(e))
+                valid_exprs.append(e)
+            except Exception:
+                pass  # skip unparseable expressions
+        if not sym_exprs:
+            return {"error": "Could not parse any of the provided expressions."}
+        exprs = valid_exprs
         funcs = [lambdify(x, se, modules=["numpy"]) for se in sym_exprs]
 
         x_vals = np.linspace(-10, 10, 600)

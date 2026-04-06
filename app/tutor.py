@@ -53,7 +53,7 @@ directly. Ensure that your explanations are clear and concise.
 
 # Keywords that indicate the student wants a graph
 _GRAPH_KEYWORDS = re.compile(
-    r"\b(graph|plot|visuali[sz]e|draw|sketch)\b", re.IGNORECASE
+    r"\b(graph|plot|visuali[sz]e|draw|sketch|show)\b", re.IGNORECASE
 )
 
 # Filler words to strip when extracting the graph target expression
