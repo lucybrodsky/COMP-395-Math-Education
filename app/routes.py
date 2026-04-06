@@ -35,5 +35,6 @@ def chat():
 def new_problem():
     data = request.get_json(force=True)
     difficulty = data.get("difficulty", "easy")
-    problem = generate_practice_problem(difficulty)
+    topic = data.get("topic", "linear")
+    problem = generate_practice_problem(difficulty, topic)
     return jsonify(problem)
