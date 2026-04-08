@@ -14,16 +14,21 @@ const btnChat        = document.getElementById("btn-chat");
 const practicePanel  = document.getElementById("practice-panel");
 const problemText    = document.getElementById("problem-text");
 const diffSelect     = document.getElementById("difficulty-select");
+const topicSelect    = document.getElementById("topic-select");
 const btnNewProblem  = document.getElementById("btn-new-problem");
 const toolIndicator  = document.getElementById("tool-indicator");
 const toolLabel      = document.getElementById("tool-label");
 
 /* ── Tool display names ─────────────────────────────────────────── */
 const TOOL_LABELS = {
-    solve_linear_equation:  "Solving equation…",
-    check_student_step:     "Checking your step…",
+    solve_linear_equation:   "Solving equation…",
+    solve_quadratic_equation: "Solving quadratic…",
+    solve_system_of_equations: "Solving system…",
+    check_student_step:      "Checking your step…",
     generate_practice_problem: "Generating problem…",
-    simplify_expression:    "Simplifying expression…",
+    simplify_expression:     "Simplifying expression…",
+    graph_function:          "Generating graph…",
+    graph_equation:          "Generating graph…",
 };
 
 /* ── KaTeX render ───────────────────────────────────────────────── */
@@ -67,17 +72,19 @@ function setMode(newMode) {
     practicePanel.classList.toggle("hidden", newMode !== "practice");
 
     if (newMode === "practice") {
-        userInput.placeholder = "Type your equation (e.g., 2x = 6)…";
+        userInput.placeholder = "Type your equation or step…";
         problemText.textContent = "—";
         addTutorMessage(
             "Welcome to **Practice Mode**!\n" +
-            "Choose a difficulty and click **New Problem** to get an equation to solve."
+            "Choose a topic and difficulty, then click **New Problem** to get a problem to solve."
         );
     } else {
-        userInput.placeholder = "Ask me any algebra question…";
+        userInput.placeholder = "Ask me any math question…";
         addTutorMessage(
-            "Hi! I'm your algebra tutor. Ask me anything about solving linear equations.\n\n" +
-            "For example: *How do I solve $3x - 4 = 11$?*"
+            "Hi! I'm your math tutor. I can help with linear equations, quadratic equations, " +
+            "systems of equations, polynomials, and more.\n\n" +
+            "Try asking: *How do I solve $x^2 - 5x + 6 = 0$?*\n" +
+            "Or say: **graph y = x^2 - 4** to see a plot."
         );
     }
 }
@@ -131,7 +138,10 @@ async function newProblem() {
         const res = await fetch("/new-problem", {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ difficulty: diffSelect.value }),
+            body:    JSON.stringify({
+                difficulty: diffSelect.value,
+                topic:      topicSelect ? topicSelect.value : "linear",
+            }),
         });
 
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -145,7 +155,7 @@ async function newProblem() {
         clearChat();
 
         const intro =
-            `Let's solve this equation together:\n\n` +
+            `Let's solve this problem together:\n\n` +
             `$$${problem.equation}$$\n\n` +
             `Take a look and tell me: what's your first step?`;
 
@@ -172,7 +182,7 @@ async function sendMessage() {
 
     // In practice mode, nudge the user to get a problem first
     if (mode === "practice" && messages.length === 0) {
-        addTutorMessage("Click **New Problem** to get an equation to work on first!");
+        addTutorMessage("Click **New Problem** to get a problem to work on first!");
         return;
     }
 
@@ -193,6 +203,7 @@ async function sendMessage() {
     scrollToBottom();
 
     let fullContent = "";
+    let graphData = null;   // set when event: graph arrives
 
     try {
         const res = await fetch("/chat", {
@@ -220,6 +231,25 @@ async function sendMessage() {
             for (const block of parts) {
                 if (!block.trim()) continue;
                 const { eventType, data } = parseSSEBlock(block);
+
+                // Handle graph event inline (before delegating to handleEvent)
+                if (eventType === "graph") {
+                    if (data && data.image_b64) {
+                        graphData = data;
+                        // Show the graph immediately while text tokens stream in below
+                        tutorBubble.textContent = "";
+                        tutorBubble.dataset.raw = "";
+                        const img = document.createElement("img");
+                        img.src = `data:image/png;base64,${data.image_b64}`;
+                        img.alt = data.expression ? `Graph of ${data.expression}` : "Graph";
+                        img.className = "graph-img";
+                        tutorBubble.appendChild(img);
+                        tutorBubble.appendChild(document.createElement("br"));
+                        scrollToBottom();
+                    }
+                    continue;
+                }
+
                 fullContent = handleEvent(eventType, data, tutorBubble, fullContent);
             }
         }
@@ -228,14 +258,27 @@ async function sendMessage() {
         tutorBubble.innerHTML = "<em>Something went wrong — please try again.</em>";
         console.error(err);
     } finally {
-        // Finalise the bubble: format markdown + render math
-        // Only overwrite if we have real content (don't clobber error messages)
         tutorBubble.classList.remove("streaming");
         const raw = fullContent || tutorBubble.dataset.raw || "";
+
+        // Compose final bubble: graph image (if any) + formatted text
+        // Clear interim streaming content and rebuild cleanly
+        tutorBubble.innerHTML = "";
+
+        if (graphData && graphData.image_b64) {
+            const img = document.createElement("img");
+            img.src = `data:image/png;base64,${graphData.image_b64}`;
+            img.alt = graphData.expression ? `Graph of ${graphData.expression}` : "Graph";
+            img.className = "graph-img";
+            tutorBubble.appendChild(img);
+        }
+
         if (raw) {
-            tutorBubble.innerHTML = formatContent(raw);
+            const textDiv = document.createElement("div");
+            textDiv.innerHTML = formatContent(raw);
+            tutorBubble.appendChild(textDiv);
             renderMath(tutorBubble);
-        } else if (!tutorBubble.innerHTML || tutorBubble.textContent === "Thinking…") {
+        } else if (!graphData) {
             tutorBubble.innerHTML = "<em style='color:#dc2626'>No response — check that Ollama is running and the model is pulled.</em>";
         }
 
