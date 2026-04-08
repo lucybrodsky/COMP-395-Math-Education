@@ -430,37 +430,126 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
     Generate a random practice problem with a guaranteed integer solution.
 
     Args:
-        difficulty: 'easy', 'medium', or 'hard' (applies to linear problems).
-        topic: 'linear' (default) or 'quadratic'.
+        difficulty: 'easy', 'medium', or 'hard'.
+        topic: 'linear', 'quadratic', 'system', or 'exponential'.
 
     Returns:
         A dict with 'equation', 'solution', 'difficulty', and 'topic'.
+        For systems, 'equation' uses ' | ' as a delimiter between the two equations.
     """
     difficulty = difficulty.lower().strip()
     topic = topic.lower().strip()
 
+    # ── Quadratic (difficulty-scaled) ─────────────────────────────────────────
     if topic == "quadratic":
-        r1 = random.randint(-6, 6)
-        r2 = random.randint(-6, 6)
-        b = -(r1 + r2)
-        c = r1 * r2
-        b_coef = "" if abs(b) == 1 else str(abs(b))
-        b_str = f"+ {b_coef}x" if b > 0 else (f"- {b_coef}x" if b < 0 else "")
-        c_str = (f"+ {c}" if c > 0 else (f"- {abs(c)}" if c < 0 else ""))
-        parts = ["x^2", b_str, c_str, "= 0"]
-        eq = " ".join(p for p in parts if p).strip()
-        if r1 == r2:
-            sol_str = f"x = {r1}"
-        else:
+        if difficulty == "easy":
+            # One root is always 0: x^2 + bx = 0  →  x(x + b) = 0
+            r2 = random.choice([r for r in range(-8, 9) if r != 0])
+            b = -r2  # since r1=0: b = -(0 + r2) = -r2
+            b_coef = "" if abs(b) == 1 else str(abs(b))
+            b_str = f"+ {b_coef}x" if b > 0 else f"- {b_coef}x"
+            eq = f"x^2 {b_str} = 0"
+            sol_str = f"x = 0 or x = {r2}"
+        elif difficulty == "medium":
+            # Both roots nonzero, same sign, small magnitude [1, 5]
+            sign = random.choice([1, -1])
+            r1 = sign * random.randint(1, 5)
+            r2 = sign * random.randint(1, 5)
+            b = -(r1 + r2)
+            c = r1 * r2
+            b_coef = "" if abs(b) == 1 else str(abs(b))
+            b_str = f"+ {b_coef}x" if b > 0 else (f"- {b_coef}x" if b < 0 else "")
+            c_str = f"+ {c}" if c > 0 else (f"- {abs(c)}" if c < 0 else "")
+            parts = ["x^2", b_str, c_str, "= 0"]
+            eq = " ".join(p for p in parts if p).strip()
+            sol_str = f"x = {r1}" if r1 == r2 else f"x = {r1} or x = {r2}"
+        else:  # hard
+            # Mixed-sign roots, randomized leading coefficient in [2, 4]
+            lead = random.randint(2, 4)
+            r1 = random.randint(-5, 5)
+            r2 = random.randint(-5, 5)
+            while r2 == r1:
+                r2 = random.randint(-5, 5)
+            # lead*(x - r1)*(x - r2) = lead*x^2 - lead*(r1+r2)*x + lead*r1*r2
+            b = -lead * (r1 + r2)
+            c = lead * r1 * r2
+            b_coef = "" if abs(b) == 1 else str(abs(b))
+            b_str = f"+ {b_coef}x" if b > 0 else (f"- {b_coef}x" if b < 0 else "")
+            c_str = f"+ {c}" if c > 0 else (f"- {abs(c)}" if c < 0 else "")
+            parts = [f"{lead}x^2", b_str, c_str, "= 0"]
+            eq = " ".join(p for p in parts if p).strip()
             sol_str = f"x = {r1} or x = {r2}"
+        return {"equation": eq, "solution": sol_str, "difficulty": difficulty, "topic": "quadratic"}
+
+    # ── System of equations ────────────────────────────────────────────────────
+    if topic == "system":
+        if difficulty == "easy":
+            # x + y = s and x - y = d, with integer x and y
+            x_val = random.randint(2, 8)
+            y_val = random.randint(1, x_val - 1)  # ensure x > y so d > 0
+            s = x_val + y_val
+            d = x_val - y_val
+            eq1 = f"x + y = {s}"
+            eq2 = f"x - y = {d}"
+        elif difficulty == "medium":
+            # ax + y = c1 and x + by = c2 (substitution-friendly)
+            x_val = random.randint(1, 5)
+            y_val = random.randint(1, 5)
+            a = random.randint(2, 4)
+            b = random.randint(2, 4)
+            c1 = a * x_val + y_val
+            c2 = x_val + b * y_val
+            eq1 = f"{a}x + y = {c1}"
+            eq2 = f"x + {b}y = {c2}"
+        else:  # hard
+            # General ax + by = c1 and cx + dy = c2 (elimination required)
+            x_val = random.randint(1, 5)
+            y_val = random.randint(1, 5)
+            a = random.randint(2, 6)
+            b = random.randint(2, 6)
+            c = random.randint(2, 6)
+            d = random.randint(2, 6)
+            c1 = a * x_val + b * y_val
+            c2 = c * x_val + d * y_val
+            eq1 = f"{a}x + {b}y = {c1}"
+            eq2 = f"{c}x + {d}y = {c2}"
+        sol_str = f"x = {x_val}, y = {y_val}"
         return {
-            "equation": eq,
+            "equation": f"{eq1} | {eq2}",
             "solution": sol_str,
             "difficulty": difficulty,
-            "topic": "quadratic",
+            "topic": "system",
         }
 
-    # Linear problems (original logic)
+    # ── Exponential equations ──────────────────────────────────────────────────
+    if topic == "exponential":
+        if difficulty == "easy":
+            # a^x = a^n, base in [2,3], exponent in [2,3]
+            a = random.randint(2, 3)
+            x_val = random.randint(2, 3)
+            result = a ** x_val
+            eq = f"{a}^x = {result}"
+        elif difficulty == "medium":
+            # a^x = a^n, base in [2,5], exponent in [3,5]
+            a = random.randint(2, 5)
+            x_val = random.randint(3, 5)
+            result = a ** x_val
+            eq = f"{a}^x = {result}"
+        else:  # hard
+            # c * a^x = b form
+            a = random.randint(2, 5)
+            c = random.randint(2, 6)
+            x_val = random.randint(1, 4)
+            result = c * (a ** x_val)
+            eq = f"{c} * {a}^x = {result}"
+        return {
+            "equation": eq,
+            "solution": f"x = {x_val}",
+            "difficulty": difficulty,
+            "topic": "exponential",
+        }
+
+    # ── Linear problems ────────────────────────────────────────────────────────
     if difficulty == "easy":
         x_val = random.randint(1, 10)
         if random.choice([True, False]):
@@ -493,12 +582,62 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
 
     else:  # hard
         x_val = random.randint(1, 6)
-        a = random.randint(2, 4)
-        b = random.randint(1, 4)
-        c = random.randint(1, 8)
+        a = random.randint(2, 5)
+        b = random.randint(1, 5)
+        c = random.randint(1, 10)
         d = a * (b * x_val + c)
         eq = f"{a}({b}x + {c}) = {d}"
         return {"equation": eq, "solution": str(x_val), "difficulty": "hard", "topic": "linear"}
+
+
+def check_system_answer(eq1_str: str, eq2_str: str, student_answer: str) -> dict:
+    """
+    Check a student's proposed solution against a 2-variable system of equations.
+
+    The student answer should contain 'x = <num>' and 'y = <num>' (e.g. 'x = 3, y = 2').
+
+    Args:
+        eq1_str: First equation string, e.g. 'x + y = 7'.
+        eq2_str: Second equation string, e.g. 'x - y = 3'.
+        student_answer: Student's proposed solution, e.g. 'x = 3, y = 2'.
+
+    Returns:
+        A dict with 'correct' (bool or None) and 'feedback' (str).
+    """
+    import re as _re
+    from sympy import Integer
+
+    x_match = _re.search(r"x\s*=\s*(-?\d+)", student_answer)
+    y_match = _re.search(r"y\s*=\s*(-?\d+)", student_answer)
+
+    if not x_match or not y_match:
+        return {
+            "correct": None,
+            "feedback": "Please write your answer as 'x = <number>, y = <number>'.",
+        }
+
+    x_val = Integer(x_match.group(1))
+    y_val = Integer(y_match.group(1))
+
+    try:
+        x, y = symbols("x y")
+        lhs1, rhs1 = _parse_equation(eq1_str)
+        lhs2, rhs2 = _parse_equation(eq2_str)
+
+        ok1 = simplify(lhs1.subs(x, x_val).subs(y, y_val) - rhs1.subs(x, x_val).subs(y, y_val)) == 0
+        ok2 = simplify(lhs2.subs(x, x_val).subs(y, y_val) - rhs2.subs(x, x_val).subs(y, y_val)) == 0
+
+        if ok1 and ok2:
+            return {"correct": True, "feedback": "Both equations check out — correct!"}
+        if not ok1:
+            return {"correct": False, "feedback": f"Check your values in the first equation: {eq1_str}."}
+        return {"correct": False, "feedback": f"Check your values in the second equation: {eq2_str}."}
+
+    except Exception:
+        return {
+            "correct": None,
+            "feedback": "I had trouble checking that. Write your answer as 'x = <number>, y = <number>'.",
+        }
 
 
 def simplify_expression(expression: str) -> dict:

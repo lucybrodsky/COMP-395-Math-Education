@@ -11,14 +11,14 @@ from typing import Generator
 
 import ollama
 
-from .math_tools import check_student_step, solve_linear_equation, graph_equation
+from .math_tools import check_student_step, check_system_answer, solve_linear_equation, graph_equation
 
 MODEL = "gemma3:12b"
 
 _BASE_PROMPT = """\
 You are a patient and encouraging math tutor helping students learn algebra.
 You can help with: linear equations, quadratic equations, systems of equations, \
-polynomials, and graphing functions.
+exponential equations, polynomials, and graphing functions.
 When writing math, use $...$ for inline expressions (e.g., $2x + 5 = 11$) and $$...$$ for \
 standalone equations on their own line.
 Keep responses concise and focused on the current step.
@@ -38,6 +38,9 @@ Rules:
 5. If the check says INCORRECT: give a Socratic hint without revealing the answer.
 6. If no check is shown, the student wrote a description (not an equation) — encourage them to write the resulting equation.
 7. When the student reaches the final answer and SymPy confirms it correct, congratulate them warmly.
+8. For systems of equations, the student must find values for BOTH x and y. \
+Prompt them to write their final answer in the form 'x = <value>, y = <value>'.
+9. For exponential equations, guide the student to identify what power the base must be raised to.
 """
 
 _CHAT_RULES = """\
@@ -124,7 +127,11 @@ def _build_system_prompt(
     prompt = _BASE_PROMPT + rules
 
     if mode == "practice" and equation:
-        prompt += f"\nThe problem the student is solving: ${equation}$\n"
+        if " | " in equation:
+            eq1, eq2 = equation.split(" | ", 1)
+            prompt += f"\nThe system of equations the student is solving:\n$${eq1}$$\n$${eq2}$$\n"
+        else:
+            prompt += f"\nThe problem the student is solving: ${equation}$\n"
 
     if math_check is not None:
         correct = math_check.get("correct")
@@ -148,6 +155,13 @@ def _build_system_prompt(
 def _looks_like_equation(text: str) -> bool:
     """Heuristic: does the student's message contain an equation to check?"""
     return "=" in text and len(text.strip()) < 60
+
+
+def _looks_like_system_answer(text: str) -> bool:
+    """True if text contains both 'x = <integer>' and 'y = <integer>'."""
+    return bool(
+        re.search(r"x\s*=\s*-?\d+", text) and re.search(r"y\s*=\s*-?\d+", text)
+    )
 
 
 def stream_response(
@@ -181,7 +195,13 @@ def stream_response(
     # Pre-compute SymPy check if applicable (practice mode)
     math_check = None
     if mode == "practice" and equation and last_user:
-        if _looks_like_equation(last_user):
+        if " | " in equation:
+            # System of equations: check when student provides x and y values
+            if _looks_like_system_answer(last_user):
+                eq1, eq2 = equation.split(" | ", 1)
+                math_check = check_system_answer(eq1.strip(), eq2.strip(), last_user)
+                print(f"[sympy] system check '{last_user}' against '{equation}': {math_check}")
+        elif _looks_like_equation(last_user):
             math_check = check_student_step(equation, last_user)
             print(f"[sympy] check '{last_user}' against '{equation}': {math_check}")
 
