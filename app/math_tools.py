@@ -450,6 +450,8 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             b_str = f"+ {b_coef}x" if b > 0 else f"- {b_coef}x"
             eq = f"x^2 {b_str} = 0"
             sol_str = f"x = 0 or x = {r2}"
+            context = None
+            show_equation = True
         elif difficulty == "medium":
             # Both roots nonzero, same sign, small magnitude [1, 5]
             sign = random.choice([1, -1])
@@ -463,23 +465,26 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             parts = ["x^2", b_str, c_str, "= 0"]
             eq = " ".join(p for p in parts if p).strip()
             sol_str = f"x = {r1}" if r1 == r2 else f"x = {r1} or x = {r2}"
-        else:  # hard
-            # Mixed-sign roots, randomized leading coefficient in [2, 4]
-            lead = random.randint(2, 4)
-            r1 = random.randint(-5, 5)
-            r2 = random.randint(-5, 5)
-            while r2 == r1:
-                r2 = random.randint(-5, 5)
-            # lead*(x - r1)*(x - r2) = lead*x^2 - lead*(r1+r2)*x + lead*r1*r2
-            b = -lead * (r1 + r2)
-            c = lead * r1 * r2
-            b_coef = "" if abs(b) == 1 else str(abs(b))
-            b_str = f"+ {b_coef}x" if b > 0 else (f"- {b_coef}x" if b < 0 else "")
-            c_str = f"+ {c}" if c > 0 else (f"- {abs(c)}" if c < 0 else "")
-            parts = [f"{lead}x^2", b_str, c_str, "= 0"]
-            eq = " ".join(p for p in parts if p).strip()
-            sol_str = f"x = {r1} or x = {r2}"
-        return {"equation": eq, "solution": sol_str, "difficulty": difficulty, "topic": "quadratic"}
+            context = (
+                f"Two numbers add up to {r1 + r2} and have a product of {r1 * r2}. "
+                f"What are the two numbers?"
+            )
+            show_equation = True
+        else:  # hard — rectangle area word problem (student formulates equation)
+            w = random.randint(2, 8)
+            extra = random.randint(1, 5)
+            area = w * (w + extra)
+            # x^2 + extra*x - area = 0, positive root = w (the width)
+            eq = f"x^2 + {extra}x - {area} = 0"
+            sol_str = f"x = {w}"
+            context = (
+                f"A rectangular garden has a length that is {extra} meter{'s' if extra > 1 else ''} "
+                f"longer than its width. The area of the garden is {area} square meters. "
+                f"Write an equation for the width, then solve it."
+            )
+            show_equation = False
+        return {"equation": eq, "solution": sol_str, "difficulty": difficulty, "topic": "quadratic",
+                "context": context, "show_equation": show_equation}
 
     # ── System of equations ────────────────────────────────────────────────────
     if topic == "system":
@@ -491,6 +496,8 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             d = x_val - y_val
             eq1 = f"x + y = {s}"
             eq2 = f"x - y = {d}"
+            context = None
+            show_equation = True
         elif difficulty == "medium":
             # ax + y = c1 and x + by = c2 (substitution-friendly)
             x_val = random.randint(1, 5)
@@ -501,6 +508,12 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             c2 = x_val + b * y_val
             eq1 = f"{a}x + y = {c1}"
             eq2 = f"x + {b}y = {c2}"
+            context = (
+                f"Maria bought {a} notebooks and 1 pen for {c1} dollars. "
+                f"James bought 1 notebook and {b} pens for {c2} dollars. "
+                f"Find the cost of each item."
+            )
+            show_equation = True
         else:  # hard
             # General ax + by = c1 and cx + dy = c2 (elimination required)
             x_val = random.randint(1, 5)
@@ -513,28 +526,59 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             c2 = c * x_val + d * y_val
             eq1 = f"{a}x + {b}y = {c1}"
             eq2 = f"{c}x + {d}y = {c2}"
+            scenario = random.choice([
+                (
+                    f"A small oven bakes {a} croissants and {b} muffins per hour. "
+                    f"A large oven bakes {c} croissants and {d} muffins per hour. "
+                    f"A cafe needs {c1} croissants and {c2} muffins for an event. "
+                    f"How many hours should each oven run?"
+                ),
+                (
+                    f"Worker A picks {a} strawberries and {b} blueberries per minute. "
+                    f"Worker B picks {c} strawberries and {d} blueberries per minute. "
+                    f"A farm stand needs {c1} strawberries and {c2} blueberries. "
+                    f"How many minutes should each worker spend picking?"
+                ),
+                (
+                    f"Printer A produces {a} color copies and {b} black-and-white copies per minute. "
+                    f"Printer B produces {c} color and {d} black-and-white copies per minute. "
+                    f"A shop needs {c1} color and {c2} black-and-white copies. "
+                    f"How many minutes should each printer run?"
+                ),
+            ])
+            context = scenario
+            show_equation = False
         sol_str = f"x = {x_val}, y = {y_val}"
         return {
             "equation": f"{eq1} | {eq2}",
             "solution": sol_str,
             "difficulty": difficulty,
             "topic": "system",
+            "context": context,
+            "show_equation": show_equation,
         }
 
     # ── Exponential equations ──────────────────────────────────────────────────
     if topic == "exponential":
         if difficulty == "easy":
             # a^x = a^n, base in [2,3], exponent in [2,3]
-            a = random.randint(2, 3)
-            x_val = random.randint(2, 3)
+            a = random.randint(1, 4)
+            x_val = random.randint(0, 3)
             result = a ** x_val
             eq = f"{a}^x = {result}"
+            context = None
+            show_equation = True
         elif difficulty == "medium":
             # a^x = a^n, base in [2,5], exponent in [3,5]
-            a = random.randint(2, 5)
-            x_val = random.randint(3, 5)
+            a = random.randint(2, 6)
+            x_val = random.randint(2, 5)
             result = a ** x_val
             eq = f"{a}^x = {result}"
+            context = (
+                f"A colony starts with 1 organism and multiplies by {a} each cycle. "
+                f"After how many cycles will the population reach {result}?"
+            )
+            show_equation = True
         else:  # hard
             # c * a^x = b form
             a = random.randint(2, 5)
@@ -542,11 +586,19 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             x_val = random.randint(1, 4)
             result = c * (a ** x_val)
             eq = f"{c} * {a}^x = {result}"
+            context = (
+                f"A savings account opens with {c} dollars. "
+                f"Each year the balance grows by a factor of {a}. "
+                f"After how many years does the balance reach {result} dollars?"
+            )
+            show_equation = False
         return {
             "equation": eq,
             "solution": f"x = {x_val}",
             "difficulty": difficulty,
             "topic": "exponential",
+            "context": context,
+            "show_equation": show_equation,
         }
 
     # ── Linear problems ────────────────────────────────────────────────────────
@@ -562,7 +614,8 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             a = random.randint(2, 9)
             c = a * x_val
             eq = f"{a}x = {c}"
-        return {"equation": eq, "solution": str(x_val), "difficulty": "easy", "topic": "linear"}
+        return {"equation": eq, "solution": str(x_val), "difficulty": "easy", "topic": "linear",
+                "context": None, "show_equation": True}
 
     elif difficulty == "medium":
         x_val = random.randint(1, 8)
@@ -572,13 +625,30 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
             c = a * x_val + b
             b_str = f"+ {b}" if b > 0 else f"- {abs(b)}"
             eq = f"{a}x {b_str} = {c}"
+            if b >= 0:
+                context = (
+                    f"A plumber charges {a} dollars per hour plus a {b} dollar call-out fee. "
+                    f"A customer's bill came to {c} dollars. How many hours did the job take?"
+                )
+            else:
+                context = (
+                    f"A phone plan charges {a} dollars per GB of data, and new customers "
+                    f"receive a {abs(b)} dollar credit. A customer's bill was {c} dollars. "
+                    f"How many GB did they use?"
+                )
         else:
             a = random.randint(3, 7)
             c_coeff = random.randint(1, a - 1)
             b = random.randint(1, 10)
             d = (a - c_coeff) * x_val + b
             eq = f"{a}x + {b} = {c_coeff}x + {d}"
-        return {"equation": eq, "solution": str(x_val), "difficulty": "medium", "topic": "linear"}
+            context = (
+                f"Friend A has {b} dollars saved and adds {a} dollars each week. "
+                f"Friend B has {d} dollars saved and adds {c_coeff} dollars each week. "
+                f"After how many weeks will they have the same amount?"
+            )
+        return {"equation": eq, "solution": str(x_val), "difficulty": "medium", "topic": "linear",
+                "context": context, "show_equation": True}
 
     else:  # hard
         x_val = random.randint(1, 6)
@@ -587,7 +657,13 @@ def generate_practice_problem(difficulty: str = "easy", topic: str = "linear") -
         c = random.randint(1, 10)
         d = a * (b * x_val + c)
         eq = f"{a}({b}x + {c}) = {d}"
-        return {"equation": eq, "solution": str(x_val), "difficulty": "hard", "topic": "linear"}
+        context = (
+            f"A contractor charges {a} dollars per unit of work. Each unit includes "
+            f"{c} dollars in materials and {b} hours of labor. "
+            f"A job's total came to {d} dollars. How many hours of labor were there?"
+        )
+        return {"equation": eq, "solution": str(x_val), "difficulty": "hard", "topic": "linear",
+                "context": context, "show_equation": False}
 
 
 def check_system_answer(eq1_str: str, eq2_str: str, student_answer: str) -> dict:

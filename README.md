@@ -33,29 +33,37 @@ python run.py
 | Systems of Equations | Two equations, two unknowns |
 | Exponential | Equations of the form `a^x = b` or `c * a^x = b` |
 
-### Difficulty Scaling
+### Difficulty Levels
 
-Each topic scales across three difficulty levels:
+Difficulty controls both the algebraic complexity and the pedagogical scaffolding:
+
+| Level | Format | What the student sees |
+|---|---|---|
+| **Easy** | Pure algebra | The equation only |
+| **Medium** | Application problem | A word problem scenario + the equation that models it |
+| **Hard** | Application problem | A word problem scenario only — student must write the equation first |
+
+On hard problems the tutor guides a two-phase process: formulation (write the equation) then solution. SymPy validates the student's formulation before moving on.
 
 **Linear**
 - Easy: `x + b = c` or `ax = c`
-- Medium: `ax + b = c` or `ax + b = cx + d`
-- Hard: `a(bx + c) = d` (distributive property)
+- Medium: billing or savings scenario → `ax + b = c` or `ax + b = cx + d`
+- Hard: contractor job scenario → `a(bx + c) = d` (student must set up the equation)
 
 **Quadratic**
-- Easy: One root is 0 — `x^2 + bx = 0` (factor out x)
-- Medium: Both roots same sign, small integers — standard factorable form
-- Hard: Mixed-sign roots with randomized leading coefficient (2–4)
+- Easy: `x^2 + bx = 0` (factor out x)
+- Medium: "two numbers with a given sum and product" → standard factorable form
+- Hard: rectangle area scenario → `x^2 + bx - c = 0` (student must set up the equation)
 
 **Systems of Equations**
-- Easy: `x + y = s` and `x - y = d` (add to eliminate)
-- Medium: `ax + y = c1` and `x + by = c2` (substitution-friendly)
-- Hard: General `ax + by = c1` and `cx + dy = c2` (elimination required)
+- Easy: `x + y = s` and `x - y = d`
+- Medium: notebook/pen purchase scenario → `ax + y = c1` and `x + by = c2`
+- Hard: bakery/farm/print shop scenario → `ax + by = c1` and `cx + dy = c2` (student must set up both equations)
 
 **Exponential**
 - Easy: `a^x = a^n`, small base and exponent
-- Medium: `a^x = b`, larger exponent
-- Hard: `c * a^x = b` (divide first, then identify the exponent)
+- Medium: organism colony scenario → `a^x = b`
+- Hard: savings account scenario → `c * a^x = b` (student must set up the equation)
 
 ### Graphing
 
@@ -84,10 +92,11 @@ run.py             Entry point
 ### How Practice Mode Works
 
 1. Student selects a topic and difficulty, clicks "New Problem"
-2. `/new-problem` calls `generate_practice_problem()` in `math_tools.py` and returns the equation
-3. For each student message, `tutor.py` checks if it looks like an equation (or system answer)
-4. SymPy validates the step and injects `[SYMPY CHECK: CORRECT/INCORRECT]` into the system prompt
-5. The LLM responds guided by that check — celebrating correct steps or hinting at mistakes
+2. `/new-problem` calls `generate_practice_problem()` in `math_tools.py` and returns the problem object (`equation`, `solution`, `context`, `show_equation`)
+3. The sidebar and intro message adapt based on difficulty: easy shows the equation, medium shows context + equation, hard shows context only
+4. For each student message, `tutor.py` checks if it looks like an equation (or system answer)
+5. SymPy validates the step and injects `[SYMPY CHECK: CORRECT/INCORRECT]` into the system prompt
+6. The LLM responds guided by that check — on hard mode it first guides equation formulation, then solving
 
 ### SSE Protocol (`/chat`)
 

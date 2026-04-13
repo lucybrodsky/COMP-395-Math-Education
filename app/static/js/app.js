@@ -2,6 +2,8 @@
 let mode = "practice";
 let messages = [];       // [{role: "user"|"assistant", content: "..."}]
 let currentEquation = null;  // active practice problem equation
+let currentDifficulty = null;
+let currentContext = null;
 let isStreaming = false;
 let katexReady = false;  // set to true by KaTeX onload in HTML
 
@@ -65,6 +67,8 @@ function setMode(newMode) {
     mode = newMode;
     messages = [];
     currentEquation = null;
+    currentDifficulty = null;
+    currentContext = null;
     clearChat();
 
     btnPractice.classList.toggle("active", newMode === "practice");
@@ -148,22 +152,52 @@ async function newProblem() {
         const problem = await res.json();
 
         currentEquation = problem.equation;
-        problemText.textContent = problem.equation;
+        currentDifficulty = problem.difficulty;
+        currentContext = problem.context || null;
+
+        // Update sidebar display
+        const labelEl = document.querySelector(".problem-label");
+        if (problem.difficulty === "hard") {
+            labelEl.textContent = "Scenario:";
+            problemText.textContent = problem.context;
+        } else if (problem.difficulty === "medium") {
+            labelEl.textContent = "Problem:";
+            problemText.textContent = problem.context + " — " + problem.equation;
+        } else {
+            labelEl.textContent = "Equation:";
+            problemText.textContent = problem.equation;
+        }
 
         // Reset conversation with context about the new problem
         messages = [];
         clearChat();
 
-        const intro =
-            `Let's solve this problem together:\n\n` +
-            `$$${problem.equation}$$\n\n` +
-            `Take a look and tell me: what's your first step?`;
+        let intro;
+        if (problem.difficulty === "hard") {
+            intro =
+                `Here's your challenge:\n\n${problem.context}\n\n` +
+                `Read the scenario carefully. What equation would you write to model this?`;
+        } else if (problem.difficulty === "medium") {
+            intro =
+                `Let's solve this word problem:\n\n${problem.context}\n\n` +
+                `The equation that models this is:\n\n$$${problem.equation}$$\n\n` +
+                `What's your first step?`;
+        } else {
+            intro =
+                `Let's solve this problem together:\n\n$$${problem.equation}$$\n\n` +
+                `Take a look and tell me: what's your first step?`;
+        }
 
         addTutorMessage(intro);
 
         // Seed history so the LLM has the problem context from the start
         messages = [
-            { role: "user",      content: `I want to practice solving: ${problem.equation}` },
+            {
+                role: "user",
+                content: problem.difficulty === "hard"
+                    ? `I want to work on this word problem: ${problem.context}`
+                    : `I want to practice solving: ${problem.equation}`,
+            },
             { role: "assistant", content: intro },
         ];
     } catch (err) {
@@ -209,7 +243,7 @@ async function sendMessage() {
         const res = await fetch("/chat", {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ messages, mode, equation: currentEquation }),
+            body:    JSON.stringify({ messages, mode, equation: currentEquation, difficulty: currentDifficulty }),
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

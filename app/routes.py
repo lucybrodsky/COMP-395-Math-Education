@@ -17,9 +17,10 @@ def chat():
     messages = data.get("messages", [])
     mode = data.get("mode", "chat")
     equation = data.get("equation") or None
+    difficulty = data.get("difficulty") or None
 
     def generate():
-        yield from stream_response(messages, mode, equation)
+        yield from stream_response(messages, mode, equation, difficulty)
 
     return Response(
         stream_with_context(generate()),

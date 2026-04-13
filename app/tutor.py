@@ -41,6 +41,10 @@ Rules:
 8. For systems of equations, the student must find values for BOTH x and y. \
 Prompt them to write their final answer in the form 'x = <value>, y = <value>'.
 9. For exponential equations, guide the student to identify what power the base must be raised to.
+10. [HARD MODE ONLY] The student must first formulate the equation from the word problem before \
+solving. In Phase 1, NEVER write the equation yourself — let SymPy validate what the student \
+submits. A CORRECT check in Phase 1 means successful formulation; praise it and move to solving. \
+NEVER say "the equation is..." in Phase 1.
 """
 
 _CHAT_RULES = """\
@@ -122,16 +126,41 @@ def _build_system_prompt(
     equation: str | None,
     math_check: dict | None,
     graph_injected: bool = False,
+    difficulty: str | None = None,
 ) -> str:
     rules = _PRACTICE_RULES if mode == "practice" else _CHAT_RULES
     prompt = _BASE_PROMPT + rules
 
     if mode == "practice" and equation:
-        if " | " in equation:
-            eq1, eq2 = equation.split(" | ", 1)
-            prompt += f"\nThe system of equations the student is solving:\n$${eq1}$$\n$${eq2}$$\n"
+        if difficulty == "hard":
+            if " | " in equation:
+                eq1, eq2 = equation.split(" | ", 1)
+                prompt += (
+                    f"\n[HARD MODE]\n"
+                    f"Hidden equations (DO NOT reveal to the student): $${eq1}$$  $${eq2}$$\n"
+                    f"Phase 1 — Formulation: Guide the student to write the system of equations "
+                    f"that models the word problem. When they write equations, SymPy will check "
+                    f"them. On CORRECT, celebrate and move to Phase 2. On INCORRECT, ask about "
+                    f"what each variable represents without giving away the equations.\n"
+                    f"Phase 2 — Solution: Once equations are confirmed, guide solving as normal.\n"
+                )
+            else:
+                prompt += (
+                    f"\n[HARD MODE]\n"
+                    f"Hidden equation (DO NOT reveal to the student): ${equation}$\n"
+                    f"Phase 1 — Formulation: Ask the student to write an equation that models "
+                    f"the scenario. When they write one, SymPy will check it. On CORRECT, "
+                    f"celebrate and move to Phase 2. On INCORRECT, hint about what each quantity "
+                    f"represents without giving the equation.\n"
+                    f"Phase 2 — Solution: Once the equation is confirmed correct, guide "
+                    f"solving step by step as normal.\n"
+                )
         else:
-            prompt += f"\nThe problem the student is solving: ${equation}$\n"
+            if " | " in equation:
+                eq1, eq2 = equation.split(" | ", 1)
+                prompt += f"\nThe system of equations the student is solving:\n$${eq1}$$\n$${eq2}$$\n"
+            else:
+                prompt += f"\nThe problem the student is solving: ${equation}$\n"
 
     if math_check is not None:
         correct = math_check.get("correct")
@@ -168,6 +197,7 @@ def stream_response(
     messages: list,
     mode: str = "chat",
     equation: str | None = None,
+    difficulty: str | None = None,
 ) -> Generator[str, None, None]:
     """
     Stream an LLM response as SSE events.
@@ -223,7 +253,7 @@ def stream_response(
         graph_injected = True
         yield f"event: graph\ndata: {json.dumps(graph_result)}\n\n"
 
-    system_content = _build_system_prompt(mode, equation, math_check, graph_injected)
+    system_content = _build_system_prompt(mode, equation, math_check, graph_injected, difficulty)
     full_messages = [{"role": "system", "content": system_content}] + list(messages)
 
     try:
