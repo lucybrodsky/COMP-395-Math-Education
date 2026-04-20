@@ -412,9 +412,21 @@ def check_student_step(original_equation: str, student_expression: str) -> dict:
         stud_solution = stud_solutions[0]
 
         if simplify(stud_solution - orig_solution) == 0:
-            return {"correct": True, "feedback": "Correct! That is a valid step."}
+            # Detect final answer: student wrote exactly `var = solution`
+            is_final = (
+                simplify(stud_lhs - orig_var) == 0
+                and simplify(stud_rhs - orig_solution) == 0
+            )
+            if is_final:
+                return {
+                    "correct": True,
+                    "final": True,
+                    "feedback": f"Correct! {orig_var} = {orig_solution} is the final answer — the problem is solved.",
+                }
+            return {"correct": True, "final": False, "feedback": "Correct! That is a valid step."}
         return {
             "correct": False,
+            "final": False,
             "feedback": f"Not quite — check your arithmetic. The equation should still lead to {orig_var} = {orig_solution}.",
         }
 
