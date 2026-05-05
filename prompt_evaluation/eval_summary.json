@@ -1,0 +1,29 @@
+{
+  "A": {
+    "label": "Minimal baseline",
+    "FAW": 4.13,
+    "SBS": 3.87,
+    "TON": 4.07,
+    "JBR": 3.27,
+    "MFC": 2.33,
+    "avg": 3.53
+  },
+  "B": {
+    "label": "Hardened + tone-aware",
+    "FAW": 4.33,
+    "SBS": 3.67,
+    "TON": 4.07,
+    "JBR": 3.27,
+    "MFC": 2.33,
+    "avg": 3.53
+  },
+  "C": {
+    "label": "Final-step scaffolded",
+    "FAW": 3.53,
+    "SBS": 3.53,
+    "TON": 3.73,
+    "JBR": 3.2,
+    "MFC": 3.4,
+    "avg": 3.48
+  }
+}
